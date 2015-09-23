@@ -81,6 +81,7 @@ import org.openhab.habdroid.ui.drawer.OpenHABDrawerAdapter;
 import org.openhab.habdroid.ui.drawer.OpenHABDrawerItem;
 import org.openhab.habdroid.util.Constants;
 import org.openhab.habdroid.util.MyAsyncHttpClient;
+import org.openhab.habdroid.util.SharedConstants;
 import org.openhab.habdroid.util.Util;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -1273,6 +1274,7 @@ public class OpenHABMainActivity extends ActionBarActivity implements OnWidgetSe
                     Log.d(TAG, "openHAB version 1");
                     mAsyncHttpClient.addHeader("Accept", "application/xml");
                     selectSitemap(mOpenHabBaseUrl, false);
+                    WearServiceManager.setOpenHABVersion(SharedConstants.OpenHabVersion.ONE);
                 }
 
                 @Override
@@ -1280,6 +1282,7 @@ public class OpenHABMainActivity extends ActionBarActivity implements OnWidgetSe
                     mOpenHABVersion = 2;
                     Log.d(TAG, "openHAB version 2");
                     selectSitemap(mOpenHabBaseUrl, false);
+                    WearServiceManager.setOpenHABVersion(SharedConstants.OpenHabVersion.TWO);
                 }
             });
         }

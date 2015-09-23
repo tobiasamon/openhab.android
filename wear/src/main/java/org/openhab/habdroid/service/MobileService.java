@@ -25,6 +25,8 @@ import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.openhab.habdroid.model.OpenHABWidget;
 import org.openhab.habdroid.model.OpenHABWidgetDataSource;
 import org.openhab.habdroid.util.SharedConstants;
@@ -53,7 +55,10 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
     private GoogleApiClient mGoogleApiClient;
     private List<MobileServiceClient> clients;
 
+    private SharedConstants.OpenHabVersion mOpenHabVersion;
+
     private MobileService() {
+        mOpenHabVersion = SharedConstants.OpenHabVersion.ONE;
     }
 
     public static MobileService getService(Context context) {
@@ -170,7 +175,26 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
         }
     }
 
-    private void parseXmlAndNotifyClients(String sitemap, String thisSitemapLink) {
+    private List<OpenHABWidget> parseJson(String sitemapData) {
+        List<OpenHABWidget> widgetList = new ArrayList<OpenHABWidget>();
+        try {
+            JSONObject pageJson = new JSONObject(sitemapData);
+            OpenHABWidgetDataSource openHABWidgetDataSource = new OpenHABWidgetDataSource();
+            openHABWidgetDataSource.setSourceJson(pageJson);
+            for (OpenHABWidget w : openHABWidgetDataSource.getWidgets()) {
+                // Remove frame widgets with no label text
+                if (w.getType().equals("Frame") && TextUtils.isEmpty(w.getLabel()))
+                    continue;
+                widgetList.add(w);
+            }
+            return widgetList;
+        } catch (JSONException e) {
+            Log.e(TAG, "Cannot parse JSON Array");
+        }
+        return null;
+    }
+
+    private List<OpenHABWidget> parseXml(String sitemap) {
         Log.d(TAG, "Processing sitemap");
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         OpenHABWidgetDataSource openHABWidgetDataSource = new OpenHABWidgetDataSource();
@@ -194,13 +218,7 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
             } else {
                 Log.e(TAG, "Got a null response from openHAB");
             }
-            Log.d(TAG, "Notifying clients " + clients);
-            for (MobileServiceClient client : clients) {
-                Log.d(TAG, "Client is of type " + client.getClass().getSimpleName());
-                if (client instanceof MobileServiceWdigetListClient) {
-                    ((MobileServiceWdigetListClient) client).onSitemapLoaded(widgetList, thisSitemapLink);
-                }
-            }
+            return widgetList;
         } catch (ParserConfigurationException e) {
             Log.e(TAG, "ParserConfig", e);
         } catch (SAXException e) {
@@ -208,6 +226,19 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
             Log.d(TAG, "Sitemap to parse: " + sitemap);
         } catch (IOException e) {
             Log.e(TAG, "IOException", e);
+        }
+        return null;
+    }
+
+    private void notifyClients(String thisSitemapLink, List<OpenHABWidget> widgetList) {
+        Log.d(TAG, "Notifying clients " + clients);
+        if (widgetList != null) {
+            for (MobileServiceClient client : clients) {
+                Log.d(TAG, "Client is of type " + client.getClass().getSimpleName());
+                if (client instanceof MobileServiceWdigetListClient) {
+                    ((MobileServiceWdigetListClient) client).onSitemapLoaded(widgetList, thisSitemapLink);
+                }
+            }
         }
     }
 
@@ -231,6 +262,11 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
                 } else if (event.getDataItem().getUri().toString().endsWith(SharedConstants.DataMapUrl.SITEMAP_BASE.value())) {
                     //mSitemapName = dataMapItem.getDataMap().getString(SharedConstants.DataMapKey.SITEMAP_NAME.name());
                     //mSitemapLink = dataMapItem.getDataMap().getString(SharedConstants.DataMapKey.SITEMAP_LINK.name());
+                } else if (event.getDataItem().getUri().toString().endsWith(SharedConstants.DataMapUrl.OPENHAB_VERSION.value())) {
+                    String version = dataMapItem.getDataMap().get(SharedConstants.DataMapKey.OPENHAB_VERSION.name());
+                    SharedConstants.OpenHabVersion openHabVersion = SharedConstants.OpenHabVersion.valueOf(version);
+                    Log.d(TAG, "Received the openhab version " + openHabVersion.name());
+                    mOpenHabVersion = openHabVersion;
                 }
             }
         }
@@ -249,10 +285,25 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
     private void processDataMapItem(DataMapItem dataMapItem) {
         DataMap map = dataMapItem.getDataMap();
         Log.d(TAG, "Got DataMapItem: " + map);
-        String sitemapXML = map.getString(SharedConstants.DataMapKey.SITEMAP_XML.name());
+        String sitemapData = map.getString(SharedConstants.DataMapKey.SITEMAP_XML.name());
         String thisSitemapLink = map.getString(SharedConstants.DataMapKey.SITEMAP_LINK.name());
         Log.d(TAG, "Got Sitemap XML for '" + thisSitemapLink + "'");
-        parseXmlAndNotifyClients(sitemapXML, thisSitemapLink);
+        processSitemapData(sitemapData, thisSitemapLink
+        );
+    }
+
+    private void processSitemapData(String sitemapData, String sitemapLink) {
+        List<OpenHABWidget> widgetList;
+        switch (mOpenHabVersion) {
+            case TWO:
+                widgetList = parseJson(sitemapData);
+                break;
+            case ONE:
+            default:
+                widgetList = parseXml(sitemapData);
+                break;
+        }
+        notifyClients(sitemapLink, widgetList);
     }
 
     public void getSiteData(String link) {
@@ -315,12 +366,34 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
             }
             Log.d(TAG, "Connected -> now check data items");
             boolean foundBaseValues = false;
-            List<Uri> uris = getUriForDataItem(SharedConstants.DataMapUrl.SITEMAP_BASE.value());
             PendingResult<DataItemBuffer> pendingResult;
             int count;
             DataItemBuffer dataItem;
             String sitemapName;
             String sitemapLink;
+
+            List<Uri>
+                    uris = getUriForDataItem(SharedConstants.DataMapUrl.OPENHAB_VERSION.value());
+
+            for (Uri uri : uris) {
+                pendingResult = getDataItems(uri);
+                dataItem = pendingResult.await(5, TimeUnit.SECONDS);
+                count = dataItem.getCount();
+                Log.d(TAG, "Found '" + count + "' items for openhab version");
+                if (count > 0) {
+                    for (int i = 0; i < dataItem.getCount(); i++) {
+                        DataItem item = dataItem.get(i);
+                        final DataMapItem dataMapItem = DataMapItem.fromDataItem(item);
+                        if (item.getUri().toString().endsWith(SharedConstants.DataMapUrl.OPENHAB_VERSION.value())) {
+                            String ohv = dataMapItem.getDataMap().getString(SharedConstants.DataMapKey.OPENHAB_VERSION.name());
+                            mOpenHabVersion = SharedConstants.OpenHabVersion.valueOf(ohv);
+                            Log.d(TAG, "Got the openhab version from data map " + mOpenHabVersion.name());
+                        }
+                    }
+                }
+            }
+
+            uris = getUriForDataItem(SharedConstants.DataMapUrl.SITEMAP_BASE.value());
             for (Uri uri : uris) {
                 pendingResult = getDataItems(uri);
                 dataItem = pendingResult.await(5, TimeUnit.SECONDS);
@@ -407,9 +480,9 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
                 new GetRemoteDataAsync().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, mCurrentLink);
             } else {
                 Log.d(TAG, "Already have the data for the link " + mCurrentLink);
-                String sitemapXml = dataMapItem.getDataMap().getString(SharedConstants.DataMapKey.SITEMAP_XML.name());
+                String sitemapData = dataMapItem.getDataMap().getString(SharedConstants.DataMapKey.SITEMAP_XML.name());
                 String sitemapLink = dataMapItem.getDataMap().getString(SharedConstants.DataMapKey.SITEMAP_LINK.name());
-                parseXmlAndNotifyClients(sitemapXml, sitemapLink);
+                processSitemapData(sitemapData, sitemapLink);
             }
         }
     }

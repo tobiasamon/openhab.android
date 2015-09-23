@@ -7,6 +7,7 @@ import android.os.IBinder;
 import android.util.Log;
 
 import org.openhab.habdroid.model.OpenHABSitemap;
+import org.openhab.habdroid.util.SharedConstants;
 import org.openhab.habdroid.wear.WearService;
 
 public class WearBackgroundService extends Service {
@@ -41,6 +42,10 @@ public class WearBackgroundService extends Service {
 
     public void setOpenHabBaseUrl(String openHabBaseUrl) {
         mWearService.setOpenHabBaseUrl(openHabBaseUrl);
+    }
+
+    public void setOpenHabVersion(SharedConstants.OpenHabVersion version) {
+        mWearService.setOpenHabVersion(version);
     }
 
     /**

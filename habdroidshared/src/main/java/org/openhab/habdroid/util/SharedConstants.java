@@ -5,12 +5,16 @@ package org.openhab.habdroid.util;
  */
 public class SharedConstants {
 
+    public enum OpenHabVersion {
+        ONE, TWO;
+    }
+
     public enum DataMapKey {
-        SITEMAP_NAME, SITEMAP_LINK, SITEMAP_XML;
+        SITEMAP_NAME, SITEMAP_LINK, SITEMAP_XML, OPENHAB_VERSION;
     }
 
     public enum DataMapUrl {
-        SITEMAP_BASE, SITEMAP_DETAILS;
+        SITEMAP_BASE, SITEMAP_DETAILS, OPENHAB_VERSION;
 
         public String value() {
             return "/" + name();

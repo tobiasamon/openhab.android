@@ -8,6 +8,7 @@ import android.os.IBinder;
 import android.util.Log;
 
 import org.openhab.habdroid.model.OpenHABSitemap;
+import org.openhab.habdroid.util.SharedConstants;
 
 /**
  * Created by tobiasamon on 08.04.15.
@@ -116,6 +117,16 @@ public class WearServiceManager {
     private void internalSetOpenHabBaseUrl(String openHABBaseUrl) {
         if(mWearBackgroundService != null) {
             mWearBackgroundService.setOpenHabBaseUrl(openHABBaseUrl);
+        }
+    }
+
+    public static void setOpenHABVersion(SharedConstants.OpenHabVersion version) {
+        instance.internalSetOpenHabVersion(version);
+    }
+
+    private void internalSetOpenHabVersion(SharedConstants.OpenHabVersion version) {
+        if(mWearBackgroundService != null) {
+            mWearBackgroundService.setOpenHabVersion(version);
         }
     }
 }

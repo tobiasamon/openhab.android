@@ -201,6 +201,21 @@ public class WearService implements GoogleApiClient.ConnectionCallbacks, Message
         mOpenHABBaseUrl = openHabBaseUrl;
     }
 
+    public void setOpenHabVersion(SharedConstants.OpenHabVersion version) {
+        try {
+            PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SharedConstants.DataMapUrl.OPENHAB_VERSION.value());
+
+            putDataMapRequest.getDataMap().putString(SharedConstants.DataMapKey.OPENHAB_VERSION.name(), version.name());
+            putDataMapRequest.getDataMap().putLong("time", System.currentTimeMillis());
+            Log.d(TAG, "Sending openhab version to uri : " + putDataMapRequest.getUri());
+            //Log.d(TAG, "Sending datamap: " + putDataMapRequest.getDataMap());
+            PutDataRequest putDataRequest = putDataMapRequest.asPutDataRequest();
+            Wearable.DataApi.putDataItem(mGoogleApiClient, putDataRequest);
+        } catch (Exception e) {
+            Log.e(TAG, "Cannot send data to wearable", e);
+        }
+    }
+
     @Deprecated
             // kept to have a wait during development to remove data
     class ClearDataApiAsync extends AsyncTask<OpenHABSitemap, Void, OpenHABSitemap> {
