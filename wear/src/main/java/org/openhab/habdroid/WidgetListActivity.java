@@ -3,6 +3,7 @@ package org.openhab.habdroid;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
 import android.support.wearable.view.WatchViewStub;
 import android.support.wearable.view.WearableListView;
 import android.util.Log;
@@ -38,6 +39,17 @@ public class WidgetListActivity extends Activity implements WearableListView.Cli
     private String mCurrentSitemapLinkToWaitFor;
     private String mSitemapName;
 
+    private static final int SPEECH_REQUEST_CODE = 0;
+
+    // Create an intent that can start the Speech Recognizer activity
+    private void displaySpeechRecognizer() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        // Start the activity, the intent will be populated with the speech text
+        startActivityForResult(intent, SPEECH_REQUEST_CODE);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,22 +75,41 @@ public class WidgetListActivity extends Activity implements WearableListView.Cli
         });
 
         initMobileService();
+        displaySpeechRecognizer();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        String spokenText = null;
+        if (requestCode == SPEECH_REQUEST_CODE && resultCode == RESULT_OK) {
+            List<String> results = data.getStringArrayListExtra(
+                    RecognizerIntent.EXTRA_RESULTS);
+            spokenText = results.get(0);
+            Log.d(TAG, "Spoken text " + spokenText);
+        }
+        if (mMobileService != null) {
+            mMobileService.connect(this);
+        }
+        if(spokenText != null) {
+            mMobileService.processVoiceCommand(spokenText);
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     private void initMobileService() {
         mMobileService = MobileService.getService(getApplicationContext());
-        mMobileService.connect(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        mMobileService.connect(this);
     }
 
     @Override
     protected void onPause() {
-        mMobileService.removeClient(this);
+        if (mMobileService != null) {
+            mMobileService.removeClient(this);
+        }
         super.onPause();
     }
 
