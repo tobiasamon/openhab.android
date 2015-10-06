@@ -275,8 +275,13 @@ public class MobileService implements GoogleApiClient.ConnectionCallbacks, DataA
             nodeIdList.remove(0);
             SendCommandResultCallBack callBack = new SendCommandResultCallBack(command, link, nodeIdList);
             String dataToSend = command + "::" + link;
+            Log.d(TAG, "Sending command to backend: " + dataToSend);
             Wearable.MessageApi.sendMessage(mGoogleApiClient, firstNodeId, SharedConstants.MessagePath.SEND_TO_OPENHAB.value(), dataToSend.getBytes()).setResultCallback(callBack);
         }
+    }
+
+    public void processVoiceCommand(String spokenText) {
+        new SendCommandAsync().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, spokenText, "/rest/items/VoiceCommand");
     }
 
     private final class SendCommandResultCallBack implements ResultCallback<MessageApi.SendMessageResult> {

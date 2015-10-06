@@ -98,12 +98,14 @@ public class WearService implements GoogleApiClient.ConnectionCallbacks, Message
         String[] data = new String(messageEvent.getData()).split("\\:\\:");
         final String command = data[0];
         String link = data[1];
+        String baseUrlToUse = mOpenHABBaseUrl;
+        if (mOpenHABBaseUrl.endsWith("/")) {
+            baseUrlToUse = mOpenHABBaseUrl.substring(0, mOpenHABBaseUrl.length() - 1);
+        }
         if (command.startsWith("/CMD")) {
-            String baseUrlToUse = mOpenHABBaseUrl;
-            if (mOpenHABBaseUrl.endsWith("/")) {
-                baseUrlToUse = mOpenHABBaseUrl.substring(0, mOpenHABBaseUrl.length() - 1);
-            }
             link = baseUrlToUse + command;
+        } else if (link.contains("VoiceCommand")) {
+            link = baseUrlToUse + link;
         }
         final String finalLink = link;
         Log.d(TAG, "Send command " + command + " to url " + link);
